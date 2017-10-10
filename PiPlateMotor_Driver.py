@@ -1,7 +1,25 @@
-#!/usr/bin/env python
-# coding: Latin-1
-
-# Load library functions we want
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+#
+#  PiPlateMotor_Driver.py
+#  
+#  Copyright 2017 John Nuber <pi@raspberrypi>
+#  
+#  This program is free software; you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 2 of the License, or
+#  (at your option) any later version.
+#  
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#  
+#  You should have received a copy of the GNU General Public License
+#  along with this program; if not, write to the Free Software
+#  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+#  MA 02110-1301, USA.
+#  
 import time
 from time import sleep
 import pygame
@@ -22,10 +40,12 @@ rate  = 0.0			# Initalize aceleration rate 0 - 100
 # Function to set all drives off
 def MotorOff():
     print("Stopping Motor")
-    MOTOR.dcSTOP(ctl,1)
-    MOTOR.dcSTOP(ctl,2)
-    MOTOR.dcSTOP(ctl,3)
-    MOTOR.dcSTOP(ctl,4)
+    motor.dcSTOP(ctl,1)
+    motor.dcSTOP(ctl,2)
+    motor.dcSTOP(ctl,3)
+    motor.dcSTOP(ctl,4)
+    
+    status = "stopped"
 
 def resetCtl():
 	MOTOR.clrLED(ctl)
@@ -33,9 +53,10 @@ def resetCtl():
 	MOTOR.RESET(ctl)
 	return
 
-def initMotor():
-	motor.dcCONFIG(ctl,1,"cw",0.0,0.0)
-	motor.dcCONFIG(ctl,2,"cw",0.0,0.0)
+def initMotor(rotation):
+	print("Setting: ",rotation)
+	motor.dcCONFIG(ctl,1,rotation,0.0,0.0)
+	motor.dcCONFIG(ctl,2,rotation,0.0,0.0)
 	motor.dcCONFIG(ctl,3,"cw",0.0,0.0)
 	motor.dcCONFIG(ctl,4,"cw",0.0,0.0)
 	
@@ -43,6 +64,8 @@ def initMotor():
 	motor.dcSTART(ctl,2)
 	motor.dcSTART(ctl,3)
 	motor.dcSTART(ctl,4)
+	
+	status = "running"
 	return
 
 def fwd():
@@ -57,11 +80,15 @@ def fwd():
 	motor.dcSTART(ctl,3)
 	motor.dcSTART(ctl,4)
 
-def speed(FLspeed,FRspeed):
-	print("Adjusting Speed Motor {0}: {1} ".format(FL,FLspeed))
-	print("Adjusting Speed Motor {0}: {1} ".format(FR,FRspeed))
+def speed(FLspeed,FRspeed,RLspeed,RRspeed):
+	print("Adjusting Speed {0}: {1} ".format(FL,FLspeed))
+	print("Adjusting Speed {0}: {1} ".format(FR,FRspeed))
+	print("Adjusting Speed {0}: {1} ".format(RL,RLspeed))
+	print("Adjusting Speed {0}: {1} ".format(RR,RRspeed))	
 	motor.dcSPEED(ctl,FR,FLspeed)
 	motor.dcSPEED(ctl,FL,FRspeed)
+	motor.dcSPEED(ctl,RR,FLspeed)
+	motor.dcSPEED(ctl,RL,FRspeed)
 
 # Settings for JoyStick
 leftDrive  = FL                         # Drive number for left motor
@@ -80,6 +107,7 @@ global moveLeft
 global moveRight
 global moveQuit
 global button12
+global rotation 
 
 hadEvent  = True
 moveUp    = False
@@ -88,6 +116,7 @@ moveLeft  = False
 moveRight = False
 moveQuit  = False
 button12  = False
+rotation  = 'cw'
 
 pygame.init()
 pygame.joystick.init()
@@ -179,32 +208,42 @@ try:
                 break   
             elif moveLeft:
                 print("Left")
-                #leftState = GPIO.LOW
-                #rightState = GPIO.HIGH
+                if status == "stopped": 
+                   initMotor('cw')
+                if direction == "fwd":
+                    speed((upDown * -100),(upDown * -50),(upDown * -100),(upDown * -50)) # FL, FR, RL,RR
+                elif direction == "reverse":
+                    speed((upDown * 100 ),(upDown * 50 ),(upDown * 100 ),(upDown * 50 )) # FL, FR, RL,RR
             elif moveRight:
                 print("Right")
-                #leftState = GPIO.HIGH
-                #rightState = GPIO.LOW
+                if status == "stopped": 
+                   initMotor('ccw')
+                if direction == "fwd":
+                    speed((upDown * -50),(upDown * -100),(upDown * -50),(upDown * -100)) # FL, FR, RL,RR
+                elif direction == "reverse":
+                    speed((upDown * 50 ),(upDown * 100 ),(upDown * 50 ),(upDown * 100 )) # FL, FR, RL,RR
             elif moveUp:
                 if direction != "fwd":
                     MotorOff()
-                    initMotor()
+                    initMotor('cw')
                 print("Fwd @ {0}".format(upDown * -100))
-                speed((upDown * -100),(upDown * -100))
+                speed((upDown * -100),(upDown * -100),(upDown * -100),(upDown * -100))
                 direction = "fwd"
+                status = "running"
             elif moveDown:
                 if direction != "reverse":
                     MotorOff()
-                    initMotor()
+                    initMotor('ccw')
                 print("Back @ {0}".format(upDown * 100))
-                speed((upDown * 100),(upDown * 100))
+                speed((upDown * 100),(upDown * 100),(upDown * 100),(upDown * 100))
                 direction = "reverse"
-                sleep(.125)
+                status = "running"
             else:
                 # print("center")
                 if direction != "stopped":
                     MotorOff()
                     direction = "stopped"
+                    status = "stopped"
         time.sleep(interval)
     # Disable all drives
     MotorOff()
